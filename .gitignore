@@ -1,0 +1,31 @@
+# Binários do Go
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+
+# Saídas de compilação
+*.out
+*.o
+*.a
+
+# Diretório de build (se utilizado)
+build/
+
+# Logs
+*.log
+
+# envs
+.env
+
+# Diretórios de dependências (caso use mod vendor)
+vendor/
+
+# Configurações de IDEs
+.vscode/
+.idea/
+*.iml
+
+# Arquivos do sistema (ex.: macOS)
+.DS_Store
