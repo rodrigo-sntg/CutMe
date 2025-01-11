@@ -1,10 +1,6 @@
 package main
 
 import (
-	"CutMe/config"
-	"CutMe/domain"
-	"CutMe/infrastructure"
-	"CutMe/routes"
 	"context"
 	"log"
 	"os"
@@ -15,20 +11,23 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+
+	"CutMe/config"
+	"CutMe/domain"
+	"CutMe/routes"
 )
 
 func main() {
 	loadEnv()
 
 	router := setupRouter()
-
 	awsSession := setupAWSSession()
-	dependencies := initializeDependencies(awsSession)
+	deps := initializeDependencies(awsSession)
 
-	setupRoutes(router, dependencies)
+	setupRoutes(router, deps)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	go startSQSConsumer(ctx, dependencies.SQSConsumer)
+	go startSQSConsumer(ctx, deps.SQSConsumer)
 	go startServer(router)
 
 	waitForShutdown(cancel)
@@ -36,7 +35,7 @@ func main() {
 
 func loadEnv() {
 	if err := godotenv.Load(); err != nil {
-		log.Println("Aviso: Não foi possível carregar o arquivo .env. Usando variáveis padrão do ambiente.")
+		log.Println("Aviso: não foi possível carregar o arquivo .env. Usando variáveis padrão do ambiente.")
 	}
 }
 
@@ -53,6 +52,7 @@ func initializeDependencies(awsSession *session.Session) *config.Dependencies {
 }
 
 func setupRoutes(router *gin.Engine, deps *config.Dependencies) {
+	// Registrando rotas via pacote "routes"
 	routes.RegisterRoutes(router, &routes.Dependencies{
 		DynamoClient:       deps.DynamoClient,
 		S3Client:           deps.S3Client,
@@ -60,8 +60,7 @@ func setupRoutes(router *gin.Engine, deps *config.Dependencies) {
 	})
 }
 
-func startSQSConsumer(ctx context.Context, consumer *infrastructure.SQSConsumer) {
-	log.Println("Iniciando consumo de mensagens SQS...")
+func startSQSConsumer(ctx context.Context, consumer domain.SQSConsumer) {
 	consumer.StartConsumption(ctx, 5)
 }
 
@@ -79,19 +78,11 @@ func waitForShutdown(cancel context.CancelFunc) {
 	cancel()
 }
 
+// parseEnvInt converte string -> int, usando defaultValue em caso de erro.
 func parseEnvInt(value string, defaultValue int) int {
 	parsed, err := strconv.Atoi(value)
 	if err != nil {
 		return defaultValue
 	}
 	return parsed
-}
-
-type Dependencies struct {
-	S3Client           domain.S3Client
-	DynamoClient       domain.DynamoClient
-	EmailNotifier      domain.Notifier
-	ProcessFileUseCase domain.ProcessFileUseCase
-	SQSConsumer        domain.SQSConsumer
-	SignedURLGenerator domain.SignedURLGenerator
 }

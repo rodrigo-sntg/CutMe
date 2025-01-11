@@ -29,3 +29,8 @@ vendor/
 
 # Arquivos do sistema (ex.: macOS)
 .DS_Store
+
+
+# terraform
+
+terraform/

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -24,9 +25,14 @@ func NewS3Client(sess *session.Session) domain.S3Client {
 }
 
 func (s *s3Client) DownloadFile(bucket, key string) (string, error) {
+	decodedKey, err := url.QueryUnescape(key)
+	if err != nil {
+		return "", fmt.Errorf("erro ao decodificar chave do arquivo: %w", err)
+	}
+
 	out, err := s.svc.GetObject(&s3.GetObjectInput{
 		Bucket: aws.String(bucket),
-		Key:    aws.String(key),
+		Key:    aws.String(decodedKey),
 	})
 	if err != nil {
 		return "", fmt.Errorf("erro ao fazer download do S3: %w", err)
@@ -60,6 +66,9 @@ func (s *s3Client) UploadFile(bucket, key, localPath string) error {
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
 		Body:   f,
+		Metadata: map[string]*string{
+			"IgnoreSQS": aws.String("true"),
+		},
 	})
 	if err != nil {
 		return fmt.Errorf("erro no upload do arquivo: %w", err)
@@ -70,9 +79,14 @@ func (s *s3Client) UploadFile(bucket, key, localPath string) error {
 }
 
 func (s *s3Client) HeadObject(bucket, key string) (*s3.HeadObjectOutput, error) {
+	decodedKey, err := url.QueryUnescape(key)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao decodificar chave do arquivo: %w", err)
+	}
+
 	out, err := s.svc.HeadObject(&s3.HeadObjectInput{
 		Bucket: aws.String(bucket),
-		Key:    aws.String(key),
+		Key:    aws.String(decodedKey),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("erro ao obter metadados do S3: %w", err)

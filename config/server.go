@@ -24,4 +24,5 @@ func SetupRouter() *gin.Engine {
 		c.Status(200)
 	})
 	return r
+
 }

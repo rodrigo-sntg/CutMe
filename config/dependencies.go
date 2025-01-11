@@ -1,52 +1,43 @@
 package config
 
 import (
-	"CutMe/domain"
-	"CutMe/infrastructure"
-	"CutMe/usecase"
 	"os"
 	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
+
+	"CutMe/domain"
+	"CutMe/infrastructure"
+	"CutMe/usecase"
 )
 
+// Dependencies centraliza as instâncias necessárias na aplicação.
 type Dependencies struct {
 	S3Client           domain.S3Client
 	DynamoClient       domain.DynamoClient
 	EmailNotifier      domain.Notifier
 	ProcessFileUseCase domain.ProcessFileUseCase
-	SQSConsumer        *infrastructure.SQSConsumer
+	SQSConsumer        domain.SQSConsumer
 	SignedURLGenerator domain.SignedURLGenerator
 }
 
 func InitializeDependencies(awsSession *session.Session) *Dependencies {
-	s3Bucket := os.Getenv("S3_BUCKET")
-	if s3Bucket == "" {
-		s3Bucket = "my-default-bucket"
-	}
-
-	tableName := os.Getenv("DYNAMO_TABLE")
-	if tableName == "" {
-		tableName = "UploadsTable"
-	}
-
-	queueURL := os.Getenv("QUEUE_URL")
-	if queueURL == "" {
-		queueURL = "https://sqs.sa-east-1.amazonaws.com/123456789012/minha-fila"
-	}
-
-	cdnDomain := os.Getenv("CLOUDFRONT_DOMAIN_NAME")
+	s3Bucket := getEnv("S3_BUCKET", "my-default-bucket")
+	tableName := getEnv("DYNAMO_TABLE", "UploadsTable")
+	queueURL := getEnv("QUEUE_URL", "https://sqs.sa-east-1.amazonaws.com/123456789012/minha-fila")
+	cdnDomain := os.Getenv("CLOUDFRONT_DOMAIN_NAME") // pode ser vazio
 
 	emailConfig := infrastructure.EmailConfig{
-		SMTPHost:     os.Getenv("SMTP_HOST"),
+		SMTPHost:     getEnv("SMTP_HOST", "smtp.gmail.com"),
 		SMTPPort:     parseEnvInt(os.Getenv("SMTP_PORT"), 587),
-		FromEmail:    os.Getenv("SMTP_EMAIL"),
+		FromEmail:    getEnv("SMTP_EMAIL", "default@gmail.com"),
 		FromPassword: os.Getenv("SMTP_PASSWORD"),
 		ProjectName:  "CutMe",
 	}
 
+	// Criando implementações concretas
 	s3Client := infrastructure.NewS3Client(awsSession)
 	dynamoClient := infrastructure.NewDynamoClient(awsSession, tableName)
 	emailNotifier := infrastructure.NewEmailNotifier(emailConfig)
@@ -60,11 +51,13 @@ func InitializeDependencies(awsSession *session.Session) *Dependencies {
 	)
 
 	sqsClient := sqs.New(awsSession)
+
+	// Nota: domain.SQSConsumer é a interface, e NewSQSConsumer retorna a implementação.
 	sqsConsumer := infrastructure.NewSQSConsumer(
 		sqsClient,
 		s3Client,
 		queueURL,
-		processFileUseCase,
+		processFileUseCase, // Esse "handler" implementa domain.SQSMessageHandler
 	)
 
 	signedURLGenerator := infrastructure.NewS3SignedURLGenerator(
@@ -83,10 +76,20 @@ func InitializeDependencies(awsSession *session.Session) *Dependencies {
 	}
 }
 
+// parseEnvInt converte string -> int (fallback se der erro).
 func parseEnvInt(value string, defaultValue int) int {
 	parsed, err := strconv.Atoi(value)
 	if err != nil {
 		return defaultValue
 	}
 	return parsed
+}
+
+// getEnv retorna variável de ambiente ou fallback se não existir.
+func getEnv(key, fallback string) string {
+	val := os.Getenv(key)
+	if val == "" {
+		return fallback
+	}
+	return val
 }

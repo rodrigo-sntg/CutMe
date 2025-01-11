@@ -115,6 +115,11 @@ func (c *SQSConsumer) worker(ctx context.Context, messageChannel <-chan *sqs.Mes
 				continue
 			}
 
+			if metadata["Ignoresqs"] == "true" {
+				log.Printf("Ignorando mensagem para arquivo: %s\n", objectKey)
+				continue
+			}
+
 			userID := metadata["Userid"]
 			uniqueID := metadata["Uniqueid"]
 
