@@ -17,14 +17,17 @@ import (
 
 type ProcessFileUseCase interface {
 	domain.SQSMessageHandler
+	ExtractFrames(localVideo string) (string, error)
 }
 
 type processFileUseCase struct {
-	s3Client      domain.S3Client
-	s3Bucket      string
-	cdnDomain     string
-	dynamoClient  domain.DynamoClient
-	emailNotifier domain.Notifier
+	s3Client        domain.S3Client
+	s3Bucket        string
+	cdnDomain       string
+	dynamoClient    domain.DynamoClient
+	emailNotifier   domain.Notifier
+	extractFramesFn func(localVideo string) (string, error) // <--- Campo funcional
+
 }
 
 func NewProcessFileUseCase(
@@ -33,14 +36,41 @@ func NewProcessFileUseCase(
 	cdnDomain string,
 	dynamoClient domain.DynamoClient,
 	emailNotifier domain.Notifier,
+	options ...func(*processFileUseCase),
 ) ProcessFileUseCase {
-	return &processFileUseCase{
-		s3Client:      s3Client,
-		s3Bucket:      s3Bucket,
-		cdnDomain:     cdnDomain,
-		dynamoClient:  dynamoClient,
-		emailNotifier: emailNotifier,
+	uc := &processFileUseCase{
+		s3Client:        s3Client,
+		s3Bucket:        s3Bucket,
+		cdnDomain:       cdnDomain,
+		dynamoClient:    dynamoClient,
+		emailNotifier:   emailNotifier,
+		extractFramesFn: realExtractFrames,
 	}
+
+	for _, option := range options {
+		option(uc)
+	}
+
+	return uc
+
+}
+func realExtractFrames(localVideo string) (string, error) {
+	framesDir, err := os.MkdirTemp("", "frames_")
+	if err != nil {
+		return "", fmt.Errorf("erro ao criar diretório temporário: %w", err)
+	}
+
+	err = ffmpeg.
+		Input(localVideo).
+		Filter("fps", ffmpeg.Args{"1/20"}).
+		Output(filepath.Join(framesDir, "frame_%04d.jpg")).
+		OverWriteOutput().
+		Run()
+
+	if err != nil {
+		return "", fmt.Errorf("erro ffmpeg-go fps=1/20: %w", err)
+	}
+	return framesDir, nil
 }
 
 func (uc *processFileUseCase) Handle(ctx context.Context, msg domain.SQSMessage) error {
@@ -68,7 +98,7 @@ func (uc *processFileUseCase) Handle(ctx context.Context, msg domain.SQSMessage)
 	}
 	defer os.Remove(localVideo)
 
-	framesDir, err := uc.extractFrames(localVideo)
+	framesDir, err := uc.extractFramesFn(localVideo)
 	if err != nil {
 		uc.sendFailureEmail(msg, "Erro ao extrair frames", err)
 		return err
@@ -102,6 +132,10 @@ func (uc *processFileUseCase) Handle(ctx context.Context, msg domain.SQSMessage)
 
 	log.Printf("Processamento concluído para o arquivo %s\n", msg.FileName)
 	return nil
+}
+
+func (uc *processFileUseCase) ExtractFrames(localVideo string) (string, error) {
+	return uc.extractFrames(localVideo)
 }
 
 func (uc *processFileUseCase) extractFrames(localVideo string) (string, error) {

@@ -1,111 +1,147 @@
-package usecase_test
+package usecase
 
 import (
-	"CutMe/domain"
 	"CutMe/usecase"
 	"context"
-	"errors"
+	"fmt"
+	"io/ioutil"
+	"log"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
+
+	"CutMe/domain"
+	"CutMe/domain/mocks"
 )
 
-type MockS3Client struct {
-	mock.Mock
-}
+func TestProcessFileUseCase_Handle_DownloadError(t *testing.T) {
+	log.SetOutput(ioutil.Discard)
 
-func (m *MockS3Client) DownloadFile(bucket, key string) (string, error) {
-	args := m.Called(bucket, key)
-	return args.String(0), args.Error(1)
-}
+	s3Mock := new(mocks.MockS3Client)
+	dynamoMock := new(mocks.MockDynamoClient)
+	notifierMock := new(mocks.MockNotifier)
 
-func (m *MockS3Client) UploadFile(bucket, key, localPath string) error {
-	args := m.Called(bucket, key, localPath)
-	return args.Error(0)
-}
+	s3Mock.
+		On("DownloadFile", "test-bucket", "sample.mp4").
+		Return("", fmt.Errorf("arquivo não encontrado no S3"))
 
-type MockDynamoClient struct {
-	mock.Mock
-}
+	dynamoMock.
+		On("CreateOrUpdateUploadRecord", mock.AnythingOfType("domain.UploadRecord")).
+		Return(nil).
+		Once()
 
-func (m *MockDynamoClient) UpdateStatus(id, status string) error {
-	args := m.Called(id, status)
-	return args.Error(0)
-}
+	notifierMock.On(
+		"SendFailureEmail",
+		"user123",
+		"msgID123",
+		mock.AnythingOfType("string"),
+	).Return(nil)
 
-type MockNotifier struct {
-	mock.Mock
-}
+	uc := usecase.NewProcessFileUseCase(
+		s3Mock,
+		"test-bucket",
+		"cdn.test.com",
+		dynamoMock,
+		notifierMock,
+	)
 
-func (m *MockNotifier) SendSuccessEmail(to, uploadID string) error {
-	args := m.Called(to, uploadID)
-	return args.Error(0)
-}
-
-func (m *MockNotifier) SendFailureEmail(to, uploadID, errorMsg string) error {
-	args := m.Called(to, uploadID, errorMsg)
-	return args.Error(0)
-}
-
-func TestProcessFileUseCase_Handle_Success(t *testing.T) {
-	mockS3 := &MockS3Client{}
-	mockDynamo := &MockDynamoClient{}
-	mockNotifier := &MockNotifier{}
-
-	// Configurar mocks
-	mockS3.On("DownloadFile", "test-bucket", "test-file").Return("/tmp/test-file", nil)
-	mockS3.On("UploadFile", "test-bucket", "test-file_processed", "/tmp/test-file").Return(nil)
-	mockDynamo.On("UpdateStatus", "123", "PROCESSING").Return(nil)
-	mockDynamo.On("UpdateStatus", "123", "PROCESSED").Return(nil)
-	mockNotifier.On("SendSuccessEmail", "user@example.com", "123").Return(nil)
-
-	// Criar caso de uso
-	uc := usecase.NewProcessFileUseCase(mockS3, "test-bucket", mockDynamo, mockNotifier)
-
-	// Mensagem SQS simulada
+	ctx := context.Background()
 	msg := domain.SQSMessage{
-		ID:        "123",
-		FileName:  "test-file",
-		Bucket:    "test-bucket",
-		UserEmail: "user@example.com",
+		ID:       "msgID123",
+		FileName: "sample.mp4",
+		UserID:   "user123",
 	}
 
-	err := uc.Handle(context.Background(), msg)
-	require.NoError(t, err)
+	err := uc.Handle(ctx, msg)
+	assert.Error(t, err, "erro esperado ao falhar no download")
 
-	// Validar chamadas
-	mockS3.AssertExpectations(t)
-	mockDynamo.AssertExpectations(t)
-	mockNotifier.AssertExpectations(t)
+	s3Mock.AssertExpectations(t)
+	dynamoMock.AssertExpectations(t)
+	notifierMock.AssertExpectations(t)
 }
 
-func TestProcessFileUseCase_Handle_Failure(t *testing.T) {
-	mockS3 := &MockS3Client{}
-	mockDynamo := &MockDynamoClient{}
-	mockNotifier := &MockNotifier{}
+func TestProcessFileUseCase_Handle_CreateRecordError(t *testing.T) {
+	log.SetOutput(ioutil.Discard)
 
-	// Configurar mocks
-	mockS3.On("DownloadFile", "test-bucket", "test-file").Return("", errors.New("download error"))
-	mockDynamo.On("UpdateStatus", "123", "PROCESSING").Return(nil)
-	mockNotifier.On("SendFailureEmail", "user@example.com", "123", "Erro ao baixar o arquivo: download error").Return(nil)
+	s3Mock := new(mocks.MockS3Client)
+	dynamoMock := new(mocks.MockDynamoClient)
+	notifierMock := new(mocks.MockNotifier)
 
-	// Criar caso de uso
-	uc := usecase.NewProcessFileUseCase(mockS3, "test-bucket", mockDynamo, mockNotifier)
+	dynamoMock.
+		On("CreateOrUpdateUploadRecord", mock.AnythingOfType("domain.UploadRecord")).
+		Return(fmt.Errorf("falha ao criar registro no DynamoDB"))
 
-	// Mensagem SQS simulada
+	uc := usecase.NewProcessFileUseCase(
+		s3Mock,
+		"test-bucket",
+		"cdn.test.com",
+		dynamoMock,
+		notifierMock,
+	)
+
+	ctx := context.Background()
 	msg := domain.SQSMessage{
-		ID:        "123",
-		FileName:  "test-file",
-		Bucket:    "test-bucket",
-		UserEmail: "user@example.com",
+		ID:       "msgID123",
+		FileName: "sample.mp4",
+		UserID:   "user123",
 	}
 
-	err := uc.Handle(context.Background(), msg)
-	require.Error(t, err)
+	err := uc.Handle(ctx, msg)
+	assert.Error(t, err, "erro esperado ao falhar na criação do registro no DynamoDB")
 
-	// Validar chamadas
-	mockS3.AssertExpectations(t)
-	mockDynamo.AssertExpectations(t)
-	mockNotifier.AssertExpectations(t)
+	dynamoMock.AssertExpectations(t)
+	s3Mock.AssertNotCalled(t, "DownloadFile", mock.Anything, mock.Anything)
+	notifierMock.AssertNotCalled(t, "SendFailureEmail", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestProcessFileUseCase_Handle_UpdateRecordError(t *testing.T) {
+	log.SetOutput(ioutil.Discard)
+
+	s3Mock := new(mocks.MockS3Client)
+	dynamoMock := new(mocks.MockDynamoClient)
+	notifierMock := new(mocks.MockNotifier)
+
+	localFile := "/tmp/test_video.mp4"
+	s3Mock.On("DownloadFile", "test-bucket", "sample.mp4").Return(localFile, nil)
+
+	notifierMock.On(
+		"SendFailureEmail",
+		"user123",
+		"msgID123",
+		mock.AnythingOfType("string"),
+	).Return(nil)
+
+	dynamoMock.
+		On("CreateOrUpdateUploadRecord", mock.AnythingOfType("domain.UploadRecord")).
+		Return(nil).
+		Once()
+
+	dynamoMock.
+		On("CreateOrUpdateUploadRecord", mock.AnythingOfType("domain.UploadRecord")).
+		Return(fmt.Errorf("falha ao atualizar registro no DynamoDB"))
+
+	uc := usecase.NewProcessFileUseCase(
+		s3Mock,
+		"test-bucket",
+		"cdn.test.com",
+		dynamoMock,
+		notifierMock,
+	)
+
+	ctx := context.Background()
+	msg := domain.SQSMessage{
+		ID:       "msgID123",
+		FileName: "sample.mp4",
+		UserID:   "user123",
+	}
+
+	err := uc.Handle(ctx, msg)
+
+	assert.Error(t, err, "erro esperado ao extrair frames")
+	assert.Contains(t, err.Error(), "ffmpeg-go", "erro esperado relacionado ao ffmpeg-go")
+
+	s3Mock.AssertExpectations(t)
+	dynamoMock.AssertExpectations(t)
+	notifierMock.AssertExpectations(t)
 }
