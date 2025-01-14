@@ -1,6 +1,8 @@
-package infrastructure
+package sqs
 
 import (
+	"CutMe/domain/entity"
+	"CutMe/domain/repository"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,18 +12,16 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
-
-	"CutMe/domain"
 )
 
 type SQSConsumer struct {
-	svc      domain.SQSAPI
-	s3Client domain.S3Client
+	svc      repository.SQSAPI
+	s3Client repository.S3Client
 	queueURL string
-	handler  domain.SQSMessageHandler
+	handler  entity.SQSMessageHandler
 }
 
-func NewSQSConsumer(svc domain.SQSAPI, s3Client domain.S3Client, queueURL string, handler domain.SQSMessageHandler) *SQSConsumer {
+func NewSQSConsumer(svc repository.SQSAPI, s3Client repository.S3Client, queueURL string, handler entity.SQSMessageHandler) *SQSConsumer {
 	return &SQSConsumer{
 		svc:      svc,
 		s3Client: s3Client,
@@ -123,7 +123,7 @@ func (c *SQSConsumer) worker(ctx context.Context, messageChannel <-chan *sqs.Mes
 			userID := metadata["Userid"]
 			uniqueID := metadata["Uniqueid"]
 
-			sqsMsg := domain.SQSMessage{
+			sqsMsg := entity.SQSMessage{
 				ID:              uniqueID,
 				FileName:        objectKey,
 				Bucket:          bucketName,

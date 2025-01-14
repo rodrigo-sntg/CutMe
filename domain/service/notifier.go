@@ -1,4 +1,4 @@
-package domain
+package service
 
 type Notifier interface {
 	SendSuccessEmailWithLinks(to, uploadID, originalFileURL, processedFileURL string) error

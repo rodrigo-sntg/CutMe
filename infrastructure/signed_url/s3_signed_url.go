@@ -1,7 +1,7 @@
-package infrastructure
+package signed_url
 
 import (
-	"CutMe/domain"
+	"CutMe/domain/repository"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -62,7 +62,7 @@ func (g *S3SignedURLGenerator) GetURLValidity() time.Duration {
 }
 
 // GenerateUploadURLHandler é o handler que recebe o SignedURLGenerator como parâmetro de injeção
-func GenerateUploadURLHandler(generator domain.SignedURLGenerator) gin.HandlerFunc {
+func GenerateUploadURLHandler(generator repository.SignedURLGenerator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		type RequestBody struct {
 			FileName string `json:"fileName" binding:"required"`
@@ -94,7 +94,7 @@ func GenerateUploadURLHandler(generator domain.SignedURLGenerator) gin.HandlerFu
 	}
 }
 
-func UploadsHandler(dynamoClient domain.DynamoClient) gin.HandlerFunc {
+func UploadsHandler(dynamoClient repository.DynamoClient) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("userID")
 		if !exists || userID == "" {
@@ -114,7 +114,7 @@ func UploadsHandler(dynamoClient domain.DynamoClient) gin.HandlerFunc {
 	}
 }
 
-func CreateUploadHandler(dynamoClient domain.DynamoClient, s3Client domain.S3Client) gin.HandlerFunc {
+func CreateUploadHandler(dynamoClient repository.DynamoClient, s3Client repository.S3Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		type RequestBody struct {
 			FileName string `json:"fileName" binding:"required"`

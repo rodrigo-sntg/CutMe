@@ -10,74 +10,43 @@ import (
 	"path/filepath"
 	"time"
 
-	"CutMe/domain"
+	"github.com/u2takey/ffmpeg-go" // Importação correta da biblioteca
 
-	ffmpeg "github.com/u2takey/ffmpeg-go"
+	"CutMe/domain/entity"
+	"CutMe/domain/repository"
+	"CutMe/domain/service"
+	"CutMe/domain/usecase"
 )
 
-type ProcessFileUseCase interface {
-	domain.SQSMessageHandler
-	ExtractFrames(localVideo string) (string, error)
-}
-
 type processFileUseCase struct {
-	s3Client        domain.S3Client
-	s3Bucket        string
-	cdnDomain       string
-	dynamoClient    domain.DynamoClient
-	emailNotifier   domain.Notifier
-	extractFramesFn func(localVideo string) (string, error) // <--- Campo funcional
-
+	s3Client      repository.S3Client
+	s3Bucket      string
+	cdnDomain     string
+	dynamoClient  repository.DynamoClient
+	emailNotifier service.Notifier
 }
 
 func NewProcessFileUseCase(
-	s3Client domain.S3Client,
+	s3Client repository.S3Client,
 	s3Bucket string,
 	cdnDomain string,
-	dynamoClient domain.DynamoClient,
-	emailNotifier domain.Notifier,
-	options ...func(*processFileUseCase),
-) ProcessFileUseCase {
-	uc := &processFileUseCase{
-		s3Client:        s3Client,
-		s3Bucket:        s3Bucket,
-		cdnDomain:       cdnDomain,
-		dynamoClient:    dynamoClient,
-		emailNotifier:   emailNotifier,
-		extractFramesFn: realExtractFrames,
+	dynamoClient repository.DynamoClient,
+	emailNotifier service.Notifier,
+) usecase.ProcessFileUseCase {
+	return &processFileUseCase{
+		s3Client:      s3Client,
+		s3Bucket:      s3Bucket,
+		cdnDomain:     cdnDomain,
+		dynamoClient:  dynamoClient,
+		emailNotifier: emailNotifier,
 	}
-
-	for _, option := range options {
-		option(uc)
-	}
-
-	return uc
-
-}
-func realExtractFrames(localVideo string) (string, error) {
-	framesDir, err := os.MkdirTemp("", "frames_")
-	if err != nil {
-		return "", fmt.Errorf("erro ao criar diretório temporário: %w", err)
-	}
-
-	err = ffmpeg.
-		Input(localVideo).
-		Filter("fps", ffmpeg.Args{"1/20"}).
-		Output(filepath.Join(framesDir, "frame_%04d.jpg")).
-		OverWriteOutput().
-		Run()
-
-	if err != nil {
-		return "", fmt.Errorf("erro ffmpeg-go fps=1/20: %w", err)
-	}
-	return framesDir, nil
 }
 
-func (uc *processFileUseCase) Handle(ctx context.Context, msg domain.SQSMessage) error {
+func (uc *processFileUseCase) Handle(ctx context.Context, msg entity.SQSMessage) error {
 	log.Printf("Iniciando processamento do arquivo %s (ID: %s)\n", msg.FileName, msg.ID)
 
 	originalFileURL := fmt.Sprintf("https://%s/%s", uc.cdnDomain, msg.FileName)
-	uploadRecord := domain.UploadRecord{
+	uploadRecord := entity.UploadRecord{
 		ID:               msg.ID,
 		UserID:           msg.UserID,
 		OriginalFileName: msg.FileName,
@@ -98,7 +67,7 @@ func (uc *processFileUseCase) Handle(ctx context.Context, msg domain.SQSMessage)
 	}
 	defer os.Remove(localVideo)
 
-	framesDir, err := uc.extractFramesFn(localVideo)
+	framesDir, err := uc.extractFrames(localVideo)
 	if err != nil {
 		uc.sendFailureEmail(msg, "Erro ao extrair frames", err)
 		return err
@@ -134,38 +103,27 @@ func (uc *processFileUseCase) Handle(ctx context.Context, msg domain.SQSMessage)
 	return nil
 }
 
-func (uc *processFileUseCase) ExtractFrames(localVideo string) (string, error) {
-	return uc.extractFrames(localVideo)
-}
-
 func (uc *processFileUseCase) extractFrames(localVideo string) (string, error) {
 	framesDir, err := os.MkdirTemp("", "frames_")
 	if err != nil {
 		return "", fmt.Errorf("erro ao criar diretório temporário: %w", err)
 	}
 
-	/**
-	Aqui é basicamente como estar usando o comando ffmpeg no terminal
-	para extrair frames de um vídeo. O comando equivalente seria:
-		ffmpeg -i input.mp4 -vf fps=1/20 framesDir/out%d.jpg
-	*/
-
-	err = ffmpeg.
+	err = ffmpeg_go.
 		Input(localVideo).
-		// 1 frame a cada 20s
-		Filter("fps", ffmpeg.Args{"1/20"}).
+		Filter("fps", ffmpeg_go.Args{"1/20"}). // 1 frame a cada 20 segundos
 		Output(filepath.Join(framesDir, "frame_%04d.jpg"),
-			ffmpeg.KwArgs{
+			ffmpeg_go.KwArgs{
 				"vsync":   "vfr",
-				"q:v":     2,          // qualidade
-				"pix_fmt": "yuvj420p", // se necessário
+				"q:v":     2,
+				"pix_fmt": "yuvj420p",
 			},
 		).
 		OverWriteOutput().
 		Run()
 
 	if err != nil {
-		return "", fmt.Errorf("erro ffmpeg-go fps=1/20: %w", err)
+		return "", fmt.Errorf("erro ao processar frames com ffmpeg-go: %w", err)
 	}
 
 	return framesDir, nil
@@ -175,7 +133,7 @@ func (uc *processFileUseCase) zipFrames(framesDir string) (string, error) {
 	zipPath := filepath.Join(os.TempDir(), fmt.Sprintf("frames_%d.zip", time.Now().UnixNano()))
 	zipFile, err := os.Create(zipPath)
 	if err != nil {
-		return "", fmt.Errorf("erro ao criar zip file: %w", err)
+		return "", fmt.Errorf("erro ao criar arquivo ZIP: %w", err)
 	}
 	defer zipFile.Close()
 
@@ -211,6 +169,7 @@ func (uc *processFileUseCase) zipFrames(framesDir string) (string, error) {
 		_, err = io.Copy(writer, f)
 		return err
 	})
+
 	if err != nil {
 		return "", fmt.Errorf("erro ao caminhar pelos frames: %w", err)
 	}
@@ -218,7 +177,7 @@ func (uc *processFileUseCase) zipFrames(framesDir string) (string, error) {
 	return zipPath, nil
 }
 
-func (uc *processFileUseCase) sendFailureEmail(msg domain.SQSMessage, reason string, err error) {
+func (uc *processFileUseCase) sendFailureEmail(msg entity.SQSMessage, reason string, err error) {
 	log.Printf("Erro: %s: %v\n", reason, err)
 	_ = uc.emailNotifier.SendFailureEmail(msg.UserID, msg.ID, fmt.Sprintf("%s: %v", reason, err))
 }

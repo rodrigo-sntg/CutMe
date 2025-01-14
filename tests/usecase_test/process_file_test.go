@@ -1,6 +1,7 @@
-package usecase
+package usecase_test
 
 import (
+	"CutMe/domain/entity"
 	"CutMe/usecase"
 	"context"
 	"fmt"
@@ -11,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"CutMe/domain"
 	"CutMe/domain/mocks"
 )
 
@@ -47,7 +47,7 @@ func TestProcessFileUseCase_Handle_DownloadError(t *testing.T) {
 	)
 
 	ctx := context.Background()
-	msg := domain.SQSMessage{
+	msg := entity.SQSMessage{
 		ID:       "msgID123",
 		FileName: "sample.mp4",
 		UserID:   "user123",
@@ -81,7 +81,7 @@ func TestProcessFileUseCase_Handle_CreateRecordError(t *testing.T) {
 	)
 
 	ctx := context.Background()
-	msg := domain.SQSMessage{
+	msg := entity.SQSMessage{
 		ID:       "msgID123",
 		FileName: "sample.mp4",
 		UserID:   "user123",
@@ -130,7 +130,7 @@ func TestProcessFileUseCase_Handle_UpdateRecordError(t *testing.T) {
 	)
 
 	ctx := context.Background()
-	msg := domain.SQSMessage{
+	msg := entity.SQSMessage{
 		ID:       "msgID123",
 		FileName: "sample.mp4",
 		UserID:   "user123",

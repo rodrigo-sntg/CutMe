@@ -1,20 +1,19 @@
 package handlers
 
 import (
+	"CutMe/domain/repository"
 	"encoding/json"
 	"log"
 	"net/http"
-
-	"CutMe/domain"
 
 	"github.com/gorilla/mux"
 )
 
 type UploadHandler struct {
-	DynamoClient domain.DynamoClient
+	DynamoClient repository.DynamoClient
 }
 
-func NewUploadHandler(dynamoClient domain.DynamoClient) *UploadHandler {
+func NewUploadHandler(dynamoClient repository.DynamoClient) *UploadHandler {
 	return &UploadHandler{DynamoClient: dynamoClient}
 }
 

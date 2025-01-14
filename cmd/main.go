@@ -1,6 +1,7 @@
 package main
 
 import (
+	gin2 "CutMe/interface/http"
 	"context"
 	"log"
 	"os"
@@ -13,8 +14,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"CutMe/config"
-	"CutMe/domain"
-	"CutMe/routes"
+	"CutMe/domain/service"
 )
 
 func main() {
@@ -53,14 +53,14 @@ func initializeDependencies(awsSession *session.Session) *config.Dependencies {
 
 func setupRoutes(router *gin.Engine, deps *config.Dependencies) {
 	// Registrando rotas via pacote "routes"
-	routes.RegisterRoutes(router, &routes.Dependencies{
+	gin2.RegisterRoutes(router, &gin2.Dependencies{
 		DynamoClient:       deps.DynamoClient,
 		S3Client:           deps.S3Client,
 		SignedURLGenerator: deps.SignedURLGenerator,
 	})
 }
 
-func startSQSConsumer(ctx context.Context, consumer domain.SQSConsumer) {
+func startSQSConsumer(ctx context.Context, consumer service.SQSConsumer) {
 	consumer.StartConsumption(ctx, 5)
 }
 

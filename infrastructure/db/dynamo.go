@@ -1,7 +1,8 @@
-package infrastructure
+package db
 
 import (
-	"CutMe/domain"
+	"CutMe/domain/entity"
+	"CutMe/domain/repository"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
@@ -16,7 +17,7 @@ type dynamoClient struct {
 	tableName string
 }
 
-func NewDynamoClient(sess *session.Session, tableName string) domain.DynamoClient {
+func NewDynamoClient(sess *session.Session, tableName string) repository.DynamoClient {
 	return &dynamoClient{
 		svc:       dynamodb.New(sess),
 		tableName: tableName,
@@ -50,7 +51,7 @@ func (d *dynamoClient) UpdateStatus(id, status string) error {
 	return nil
 }
 
-func (d *dynamoClient) UpdateUploadRecord(record domain.UploadRecord) error {
+func (d *dynamoClient) UpdateUploadRecord(record entity.UploadRecord) error {
 	input := &dynamodb.UpdateItemInput{
 		TableName: aws.String(d.tableName),
 		Key: map[string]*dynamodb.AttributeValue{
@@ -80,7 +81,7 @@ func (d *dynamoClient) UpdateUploadRecord(record domain.UploadRecord) error {
 	return nil
 }
 
-func (d *dynamoClient) CreateUploadRecord(record domain.UploadRecord) error {
+func (d *dynamoClient) CreateUploadRecord(record entity.UploadRecord) error {
 	input := &dynamodb.PutItemInput{
 		TableName: aws.String(d.tableName),
 		Item: map[string]*dynamodb.AttributeValue{
@@ -131,7 +132,7 @@ func isConditionalCheckFailed(err error) bool {
 	return false
 }
 
-func (d *dynamoClient) CreateOrUpdateUploadRecord(record domain.UploadRecord) error {
+func (d *dynamoClient) CreateOrUpdateUploadRecord(record entity.UploadRecord) error {
 	input := &dynamodb.UpdateItemInput{
 		TableName: aws.String(d.tableName),
 		Key: map[string]*dynamodb.AttributeValue{
@@ -191,7 +192,7 @@ func (d *dynamoClient) CreateOrUpdateUploadRecord(record domain.UploadRecord) er
 
 }
 
-func (d *dynamoClient) GetUploads(status string) ([]domain.UploadRecord, error) {
+func (d *dynamoClient) GetUploads(status string) ([]entity.UploadRecord, error) {
 	input := &dynamodb.ScanInput{
 		TableName: aws.String(d.tableName),
 	}
@@ -213,7 +214,7 @@ func (d *dynamoClient) GetUploads(status string) ([]domain.UploadRecord, error) 
 		return nil, fmt.Errorf("erro ao escanear registros no DynamoDB: %w", err)
 	}
 
-	var uploads []domain.UploadRecord
+	var uploads []entity.UploadRecord
 	if err := dynamodbattribute.UnmarshalListOfMaps(result.Items, &uploads); err != nil {
 		return nil, fmt.Errorf("erro ao desserializar registros: %w", err)
 	}
@@ -221,7 +222,7 @@ func (d *dynamoClient) GetUploads(status string) ([]domain.UploadRecord, error) 
 	return uploads, nil
 }
 
-func (d *dynamoClient) GetUploadByID(id string) (*domain.UploadRecord, error) {
+func (d *dynamoClient) GetUploadByID(id string) (*entity.UploadRecord, error) {
 	input := &dynamodb.GetItemInput{
 		TableName: aws.String(d.tableName),
 		Key: map[string]*dynamodb.AttributeValue{
@@ -240,7 +241,7 @@ func (d *dynamoClient) GetUploadByID(id string) (*domain.UploadRecord, error) {
 		return nil, fmt.Errorf("registro com ID %s não encontrado", id)
 	}
 
-	var upload domain.UploadRecord
+	var upload entity.UploadRecord
 	if err := dynamodbattribute.UnmarshalMap(result.Item, &upload); err != nil {
 		return nil, fmt.Errorf("erro ao desserializar registro: %w", err)
 	}
@@ -248,7 +249,7 @@ func (d *dynamoClient) GetUploadByID(id string) (*domain.UploadRecord, error) {
 	return &upload, nil
 }
 
-func (d *dynamoClient) GetUploadsByUserID(userID string, status string) ([]domain.UploadRecord, error) {
+func (d *dynamoClient) GetUploadsByUserID(userID string, status string) ([]entity.UploadRecord, error) {
 	input := &dynamodb.QueryInput{
 		TableName:              aws.String(d.tableName),
 		IndexName:              aws.String("UserID-index"),
@@ -275,7 +276,7 @@ func (d *dynamoClient) GetUploadsByUserID(userID string, status string) ([]domai
 		return nil, fmt.Errorf("erro ao consultar registros no DynamoDB: %w", err)
 	}
 
-	var uploads []domain.UploadRecord
+	var uploads []entity.UploadRecord
 	if err := dynamodbattribute.UnmarshalListOfMaps(result.Items, &uploads); err != nil {
 		return nil, fmt.Errorf("erro ao desserializar registros: %w", err)
 	}

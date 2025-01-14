@@ -1,7 +1,7 @@
-package infrastructure
+package s3
 
 import (
-	"CutMe/domain"
+	"CutMe/domain/repository"
 	"fmt"
 	"io"
 	"log"
@@ -18,7 +18,7 @@ type s3Client struct {
 	svc *s3.S3
 }
 
-func NewS3Client(sess *session.Session) domain.S3Client {
+func NewS3Client(sess *session.Session) repository.S3Client {
 	return &s3Client{
 		svc: s3.New(sess),
 	}
