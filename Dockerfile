@@ -24,6 +24,9 @@ RUN chmod +x /go/bin/app
 ##
 FROM alpine:3.17
 
+# Instala o FFmpeg no container
+RUN apk add --no-cache ffmpeg
+
 # Define o diretório de trabalho dentro do container
 WORKDIR /app
 
