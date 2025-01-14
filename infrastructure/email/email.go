@@ -1,7 +1,7 @@
-package infrastructure
+package email
 
 import (
-	"CutMe/domain"
+	"CutMe/domain/service"
 	"fmt"
 
 	gomail "gopkg.in/gomail.v2"
@@ -19,7 +19,7 @@ type emailNotifier struct {
 	config EmailConfig
 }
 
-func NewEmailNotifier(config EmailConfig) domain.Notifier {
+func NewEmailNotifier(config EmailConfig) service.Notifier {
 	return &emailNotifier{config: config}
 }
 

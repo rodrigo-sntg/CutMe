@@ -1,4 +1,4 @@
-package domain
+package entity
 
 type UploadRecord struct {
 	ID               string `json:"id"`

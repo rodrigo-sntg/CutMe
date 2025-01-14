@@ -1,6 +1,14 @@
 package config
 
 import (
+	"CutMe/domain/repository"
+	"CutMe/domain/service"
+	usecase2 "CutMe/domain/usecase"
+	"CutMe/infrastructure/db"
+	"CutMe/infrastructure/email"
+	"CutMe/infrastructure/s3"
+	"CutMe/infrastructure/signed_url"
+	sqs2 "CutMe/infrastructure/sqs"
 	"os"
 	"strconv"
 	"time"
@@ -8,19 +16,17 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
 
-	"CutMe/domain"
-	"CutMe/infrastructure"
 	"CutMe/usecase"
 )
 
 // Dependencies centraliza as instâncias necessárias na aplicação.
 type Dependencies struct {
-	S3Client           domain.S3Client
-	DynamoClient       domain.DynamoClient
-	EmailNotifier      domain.Notifier
-	ProcessFileUseCase domain.ProcessFileUseCase
-	SQSConsumer        domain.SQSConsumer
-	SignedURLGenerator domain.SignedURLGenerator
+	S3Client           repository.S3Client
+	DynamoClient       repository.DynamoClient
+	EmailNotifier      service.Notifier
+	ProcessFileUseCase usecase2.ProcessFileUseCase
+	SQSConsumer        service.SQSConsumer
+	SignedURLGenerator repository.SignedURLGenerator
 }
 
 func InitializeDependencies(awsSession *session.Session) *Dependencies {
@@ -29,7 +35,7 @@ func InitializeDependencies(awsSession *session.Session) *Dependencies {
 	queueURL := getEnv("QUEUE_URL", "https://sqs.sa-east-1.amazonaws.com/123456789012/minha-fila")
 	cdnDomain := os.Getenv("CLOUDFRONT_DOMAIN_NAME") // pode ser vazio
 
-	emailConfig := infrastructure.EmailConfig{
+	emailConfig := email.EmailConfig{
 		SMTPHost:     getEnv("SMTP_HOST", "smtp.gmail.com"),
 		SMTPPort:     parseEnvInt(os.Getenv("SMTP_PORT"), 587),
 		FromEmail:    getEnv("SMTP_EMAIL", "default@gmail.com"),
@@ -38,9 +44,9 @@ func InitializeDependencies(awsSession *session.Session) *Dependencies {
 	}
 
 	// Criando implementações concretas
-	s3Client := infrastructure.NewS3Client(awsSession)
-	dynamoClient := infrastructure.NewDynamoClient(awsSession, tableName)
-	emailNotifier := infrastructure.NewEmailNotifier(emailConfig)
+	s3Client := s3.NewS3Client(awsSession)
+	dynamoClient := db.NewDynamoClient(awsSession, tableName)
+	emailNotifier := email.NewEmailNotifier(emailConfig)
 
 	processFileUseCase := usecase.NewProcessFileUseCase(
 		s3Client,
@@ -53,14 +59,14 @@ func InitializeDependencies(awsSession *session.Session) *Dependencies {
 	sqsClient := sqs.New(awsSession)
 
 	// Nota: domain.SQSConsumer é a interface, e NewSQSConsumer retorna a implementação.
-	sqsConsumer := infrastructure.NewSQSConsumer(
+	sqsConsumer := sqs2.NewSQSConsumer(
 		sqsClient,
 		s3Client,
 		queueURL,
 		processFileUseCase, // Esse "handler" implementa domain.SQSMessageHandler
 	)
 
-	signedURLGenerator := infrastructure.NewS3SignedURLGenerator(
+	signedURLGenerator := signed_url.NewS3SignedURLGenerator(
 		awsSession,
 		s3Bucket,
 		15*time.Minute,
