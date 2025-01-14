@@ -1,8 +1,9 @@
 package usecase_test
 
 import (
-	"CutMe/domain/entity"
-	"CutMe/usecase"
+	mocks2 "CutMe/internal/application/mocks"
+	"CutMe/internal/application/usecase"
+	"CutMe/internal/domain/entity"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -11,16 +12,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-
-	"CutMe/domain/mocks"
 )
 
 func TestProcessFileUseCase_Handle_DownloadError(t *testing.T) {
 	log.SetOutput(ioutil.Discard)
 
-	s3Mock := new(mocks.MockS3Client)
-	dynamoMock := new(mocks.MockDynamoClient)
-	notifierMock := new(mocks.MockNotifier)
+	s3Mock := new(mocks2.MockS3Client)
+	dynamoMock := new(mocks2.MockDynamoClient)
+	notifierMock := new(mocks2.MockNotifier)
 
 	s3Mock.
 		On("DownloadFile", "test-bucket", "sample.mp4").
@@ -47,7 +46,7 @@ func TestProcessFileUseCase_Handle_DownloadError(t *testing.T) {
 	)
 
 	ctx := context.Background()
-	msg := entity.SQSMessage{
+	msg := entity.Message{
 		ID:       "msgID123",
 		FileName: "sample.mp4",
 		UserID:   "user123",
@@ -64,9 +63,9 @@ func TestProcessFileUseCase_Handle_DownloadError(t *testing.T) {
 func TestProcessFileUseCase_Handle_CreateRecordError(t *testing.T) {
 	log.SetOutput(ioutil.Discard)
 
-	s3Mock := new(mocks.MockS3Client)
-	dynamoMock := new(mocks.MockDynamoClient)
-	notifierMock := new(mocks.MockNotifier)
+	s3Mock := new(mocks2.MockS3Client)
+	dynamoMock := new(mocks2.MockDynamoClient)
+	notifierMock := new(mocks2.MockNotifier)
 
 	dynamoMock.
 		On("CreateOrUpdateUploadRecord", mock.AnythingOfType("domain.UploadRecord")).
@@ -81,7 +80,7 @@ func TestProcessFileUseCase_Handle_CreateRecordError(t *testing.T) {
 	)
 
 	ctx := context.Background()
-	msg := entity.SQSMessage{
+	msg := entity.Message{
 		ID:       "msgID123",
 		FileName: "sample.mp4",
 		UserID:   "user123",
@@ -98,9 +97,9 @@ func TestProcessFileUseCase_Handle_CreateRecordError(t *testing.T) {
 func TestProcessFileUseCase_Handle_UpdateRecordError(t *testing.T) {
 	log.SetOutput(ioutil.Discard)
 
-	s3Mock := new(mocks.MockS3Client)
-	dynamoMock := new(mocks.MockDynamoClient)
-	notifierMock := new(mocks.MockNotifier)
+	s3Mock := new(mocks2.MockS3Client)
+	dynamoMock := new(mocks2.MockDynamoClient)
+	notifierMock := new(mocks2.MockNotifier)
 
 	localFile := "/tmp/test_video.mp4"
 	s3Mock.On("DownloadFile", "test-bucket", "sample.mp4").Return(localFile, nil)
@@ -130,7 +129,7 @@ func TestProcessFileUseCase_Handle_UpdateRecordError(t *testing.T) {
 	)
 
 	ctx := context.Background()
-	msg := entity.SQSMessage{
+	msg := entity.Message{
 		ID:       "msgID123",
 		FileName: "sample.mp4",
 		UserID:   "user123",

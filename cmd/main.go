@@ -1,7 +1,9 @@
 package main
 
 import (
-	gin2 "CutMe/interface/http"
+	"CutMe/internal/application/service"
+	"CutMe/internal/infrastructure/configuration"
+	gin2 "CutMe/internal/infrastructure/web/http"
 	"context"
 	"log"
 	"os"
@@ -12,9 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-
-	"CutMe/config"
-	"CutMe/domain/service"
 )
 
 func main() {
@@ -40,18 +39,18 @@ func loadEnv() {
 }
 
 func setupRouter() *gin.Engine {
-	return config.SetupRouter()
+	return configuration.SetupRouter()
 }
 
 func setupAWSSession() *session.Session {
-	return config.SetupAWSSession()
+	return configuration.SetupAWSSession()
 }
 
-func initializeDependencies(awsSession *session.Session) *config.Dependencies {
-	return config.InitializeDependencies(awsSession)
+func initializeDependencies(awsSession *session.Session) *configuration.Dependencies {
+	return configuration.InitializeDependencies(awsSession)
 }
 
-func setupRoutes(router *gin.Engine, deps *config.Dependencies) {
+func setupRoutes(router *gin.Engine, deps *configuration.Dependencies) {
 	// Registrando rotas via pacote "routes"
 	gin2.RegisterRoutes(router, &gin2.Dependencies{
 		DynamoClient:       deps.DynamoClient,
@@ -60,7 +59,7 @@ func setupRoutes(router *gin.Engine, deps *config.Dependencies) {
 	})
 }
 
-func startSQSConsumer(ctx context.Context, consumer service.SQSConsumer) {
+func startSQSConsumer(ctx context.Context, consumer service.QueueConsumer) {
 	consumer.StartConsumption(ctx, 5)
 }
 
