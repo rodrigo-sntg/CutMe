@@ -199,7 +199,7 @@ docker run -p 8080:8080 cutme-api
     - **CloudFront**: GB transferidos e requests.
     - **Lambda@Edge**: Requests e tempo de execução.
     - **DynamoDB**: Uso RCU/WCU.
-    - **SQS**: Cobrança por polling e mensagens.
+    - **SQS**: Cobrança por polling e mensagens. (Por isso usamos long polling de 20s)
 
 ---
 
