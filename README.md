@@ -215,6 +215,60 @@ docker run -p 8080:8080 cutme-api
 
 ---
 
+### **8. Testes e Cobertura**
+
+#### **Execução de Testes**
+Para garantir a qualidade e cobertura dos testes, siga os passos abaixo:
+
+1. **Rodar os Testes**
+   ```bash
+   go test ./... -coverprofile=coverage.out -coverpkg=./internal/application/usecase,./internal/infrastructure/aws/s3,./internal/infrastructure/aws/db,./internal/infrastructure/aws/signed_url,./internal/infrastructure/aws/sqs
+   ```
+    - **`-coverprofile`**: Gera um relatório da cobertura de código.
+    - **`-coverpkg`**: Especifica pacotes críticos para análise de cobertura.
+
+2. **Validar Cobertura**
+   ```bash
+   go tool cover -func=coverage.out
+   ```
+   Esse comando exibe a cobertura total e de cada função testada.
+
+3. **Visualizar Cobertura no Navegador**
+   ```bash
+   go tool cover -html=coverage.out
+   ```
+   Abre um relatório interativo em HTML com destaque das linhas cobertas.
+
+---
+
+#### **Automação com `check_coverage.sh`**
+
+Um script Bash foi criado para automatizar a validação da cobertura de testes. Ele verifica se a cobertura total atinge o limite mínimo (80% por padrão).
+
+#### **Como Usar o Script**
+
+1. Torne o script executável:
+   ```bash
+   chmod +x check_coverage.sh
+   ```
+
+2. Execute o script:
+   ```bash
+   ./check_coverage.sh
+   ```
+
+3. O script retorna:
+    - **`✅ Cobertura suficiente`** se o limite for atingido.
+    - **`❌ Cobertura insuficiente`** caso contrário.
+
+---
+
+### **Benefícios**
+- **Automação**: Simplifica a validação de cobertura em pipelines CI/CD.
+- **Qualidade do Código**: Garante que as áreas críticas da aplicação estejam cobertas.
+- **Flexibilidade**: O limite pode ser ajustado conforme necessário.
+
+
 ### **Conclusão**
 
 Esta solução combina:
