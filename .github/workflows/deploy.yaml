@@ -48,11 +48,11 @@ jobs:
         run: ls -R
 
       - name: Terraform Init
-        working-directory: terraform/application
+        working-directory: terraform-infra/application
         run: terraform init
 
       - name: Terraform Apply
-        working-directory: terraform/application
+        working-directory: terraform-infra/application
         env:
           REMOVIDO ${{ secrets.AWS_ACCESS_KEY_ID }}
           REMOVIDO ${{ secrets.AWS_SECRET_ACCESS_KEY }}
