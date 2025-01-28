@@ -33,16 +33,14 @@ jobs:
           docker buildx build --platform linux/amd64 -t $ECR_REPOSITORY:$IMAGE_TAG .
           docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-      
+
       - name: Install Terraform
         run: |
           sudo apt-get update -y
           sudo apt-get install -y wget unzip
           wget -q https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip -O terraform.zip
-          rm -f terraform || true  # Remove qualquer binário existente
           unzip -o terraform.zip
           sudo mv terraform /usr/local/bin/
-          rm -f terraform.zip
 
       - name: Terraform Init
         working-directory: terraform/application
