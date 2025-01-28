@@ -44,6 +44,9 @@ jobs:
           sudo mv terraform /usr/local/bin/
           rm -f terraform.zip
 
+      - name: List Files
+        run: ls -R
+
       - name: Terraform Init
         working-directory: terraform/application
         run: terraform init
