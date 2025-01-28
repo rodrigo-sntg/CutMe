@@ -32,8 +32,8 @@ vendor/
 
 
 # terraform
-terraform/application/.terraform
-terraform/application/.terraform.lock.hcl
+terraform-infra/application/.terraform
+terraform-infra/application/.terraform.lock.hcl
 
-terraform/infra/.terraform
-terraform/infra/.terraform.lock.hcl
+terraform-infra/infra/.terraform
+terraform-infra/infra/.terraform.lock.hcl
