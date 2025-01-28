@@ -1,40 +1,35 @@
-# syntax=docker/dockerfile:1
-
-##
-# Fase 1: Build da aplicação
-##
 FROM golang:1.23-alpine AS builder
 
-# Define o diretório de trabalho dentro do container
 WORKDIR /app
 
-# Copia os arquivos de dependências para fazer cache do go.mod/go.sum
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copia todo o restante do código-fonte
 COPY . .
 
-# Compila o binário
 RUN go build -o /go/bin/app cmd/main.go
 RUN chmod +x /go/bin/app
 
-##
-# Fase 2: Imagem de runtime
-##
 FROM alpine:3.17
 
-# Instala o FFmpeg no container
 RUN apk add --no-cache ffmpeg
 
-# Define o diretório de trabalho dentro do container
 WORKDIR /app
 
-# Copia o binário gerado na fase anterior
+ENV AWS_REGION=us-east-1
+ENV S3_BUCKET=meu-bucket-processamento
+ENV DYNAMO_TABLE=ArquivosProcessados1
+ENV SMTP_HOST=smtp.gmail.com
+ENV SMTP_PORT=587
+ENV SMTP_EMAIL=contact@wandrmate.com
+ENV REMOVIDO
+ENV QUEUE_URL=https://queue.amazonaws.com/058264063116/MinhaFila
+ENV CLOUDFRONT_DOMAIN_NAME=d12jxjn0s3w75f.cloudfront.net
+ENV AWS_ACCESS_KEY_ID=REMOVIDO
+ENV AWS_SECRET_ACCESS_KEY=REMOVIDO
+
 COPY --from=builder /go/bin/app /app/app
 
-# Expõe a porta da aplicação
 EXPOSE 8080
 
-# Comando para rodar a aplicação
 CMD ["/app/app"]

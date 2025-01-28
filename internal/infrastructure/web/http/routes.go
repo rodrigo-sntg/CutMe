@@ -18,6 +18,10 @@ func RegisterRoutes(router *gin.Engine, deps *Dependencies) {
 		c.JSON(200, gin.H{"message": "Bem-vindo à API CutMe"})
 	})
 
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "All good here!"})
+	})
+	
 	// Rotas autenticadas
 	authGroup := router.Group("/api")
 	authGroup.Use(AuthMiddleware())
