@@ -16,6 +16,10 @@ RUN apk add --no-cache ffmpeg
 
 WORKDIR /app
 
+ARG SMTP_PASSWORD
+ARG AWS_ACCESS_KEY_ID
+ARG AWS_SECRET_ACCESS_KEY
+
 ENV AWS_REGION=us-east-1
 ENV S3_BUCKET=meu-bucket-processamento
 ENV DYNAMO_TABLE=ArquivosProcessados1
