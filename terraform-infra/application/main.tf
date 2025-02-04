@@ -2,16 +2,6 @@ provider "aws" {
   region = var.aws_region
 }
 
-# terraform {
-#   backend "s3" {
-#     bucket         = "terraform-s3-state-cutme-api"
-#     key            = "infra/terraform.tfstate"
-#     region         = "us-east-1"
-#     encrypt        = true
-#     dynamodb_table = "terraform-lock"
-#   }
-# }
-
 data "terraform_remote_state" "infra" {
   backend = "s3"
   config = {
