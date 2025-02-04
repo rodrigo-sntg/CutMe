@@ -19,14 +19,14 @@ WORKDIR /app
 ENV AWS_REGION=us-east-1
 ENV S3_BUCKET=meu-bucket-processamento
 ENV DYNAMO_TABLE=ArquivosProcessados1
+ENV QUEUE_URL=https://queue.amazonaws.com/058264063116/MinhaFila
+ENV CLOUDFRONT_DOMAIN_NAME=d12jxjn0s3w75f.cloudfront.net
 ENV SMTP_HOST=smtp.gmail.com
 ENV SMTP_PORT=587
 ENV SMTP_EMAIL=contact@wandrmate.com
-ENV SMTP_PASSWORD="pwbg hwdz hdhh sbtd"
-ENV QUEUE_URL=https://queue.amazonaws.com/058264063116/MinhaFila
-ENV CLOUDFRONT_DOMAIN_NAME=d12jxjn0s3w75f.cloudfront.net
-ENV AWS_ACCESS_KEY_ID=AKIAQ3EGPBSGPHXOXWXU
-ENV AWS_SECRET_ACCESS_KEY=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
+ENV SMTP_PASSWORD=${SMTP_PASSWORD}
+ENV AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+ENV AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 
 COPY --from=builder /go/bin/app /app/app
 

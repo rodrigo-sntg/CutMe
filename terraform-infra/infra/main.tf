@@ -4,7 +4,7 @@ provider "aws" {
 
 terraform {
   backend "s3" {
-    bucket = "terraform-s3-state-cutme"
+    bucket = "terraform-s3-state-cutme-api"
     key    = "cutme/infra"
     region = "us-east-1"
   }
