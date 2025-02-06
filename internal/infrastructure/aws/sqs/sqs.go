@@ -61,7 +61,7 @@ func (c *SQSConsumer) fetchMessages(ctx context.Context, messageChannel chan<- *
 	output, err := c.svc.ReceiveMessage(&sqs.ReceiveMessageInput{
 		QueueUrl:            &c.queueURL,
 		MaxNumberOfMessages: aws.Int64(5),
-		WaitTimeSeconds:     aws.Int64(10),
+		WaitTimeSeconds:     aws.Int64(20),
 	})
 	if err != nil {
 		log.Printf("Erro ao receber mensagem: %v\n", err)
