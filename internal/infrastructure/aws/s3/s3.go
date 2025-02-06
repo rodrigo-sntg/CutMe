@@ -12,25 +12,30 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 )
 
-type s3Client struct {
-	svc *s3.S3
+// S3Client é exportada (primeira letra maiúscula)
+// e usa a interface s3iface.S3API para permitir injeção de mock nos testes.
+type S3Client struct {
+	Svc s3iface.S3API
 }
 
+// NewS3Client retorna a implementação de StorageClient usando a interface s3iface.S3API.
+// Em produção, usamos s3.New(sess); em testes, podemos injetar mocks.
 func NewS3Client(sess *session.Session) repository.StorageClient {
-	return &s3Client{
-		svc: s3.New(sess),
+	return &S3Client{
+		Svc: s3.New(sess),
 	}
 }
 
-func (s *s3Client) DownloadFile(bucket, key string) (string, error) {
+func (s *S3Client) DownloadFile(bucket, key string) (string, error) {
 	decodedKey, err := url.QueryUnescape(key)
 	if err != nil {
 		return "", fmt.Errorf("erro ao decodificar chave do arquivo: %w", err)
 	}
 
-	out, err := s.svc.GetObject(&s3.GetObjectInput{
+	out, err := s.Svc.GetObject(&s3.GetObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(decodedKey),
 	})
@@ -55,14 +60,14 @@ func (s *s3Client) DownloadFile(bucket, key string) (string, error) {
 	return localFile, nil
 }
 
-func (s *s3Client) UploadFile(bucket, key, localPath string) error {
+func (s *S3Client) UploadFile(bucket, key, localPath string) error {
 	f, err := os.Open(localPath)
 	if err != nil {
 		return fmt.Errorf("erro ao abrir arquivo para upload: %w", err)
 	}
 	defer f.Close()
 
-	_, err = s.svc.PutObject(&s3.PutObjectInput{
+	_, err = s.Svc.PutObject(&s3.PutObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
 		Body:   f,
@@ -78,13 +83,13 @@ func (s *s3Client) UploadFile(bucket, key, localPath string) error {
 	return nil
 }
 
-func (s *s3Client) HeadObject(bucket, key string) (*s3.HeadObjectOutput, error) {
+func (s *S3Client) HeadObject(bucket, key string) (*s3.HeadObjectOutput, error) {
 	decodedKey, err := url.QueryUnescape(key)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao decodificar chave do arquivo: %w", err)
 	}
 
-	out, err := s.svc.HeadObject(&s3.HeadObjectInput{
+	out, err := s.Svc.HeadObject(&s3.HeadObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(decodedKey),
 	})
