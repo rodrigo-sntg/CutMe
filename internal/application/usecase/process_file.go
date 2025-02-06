@@ -22,6 +22,9 @@ type processFileUseCase struct {
 	cdnDomain     string
 	dynamoClient  repository2.DBClient
 	emailNotifier service.Notifier
+
+	extractFrames func(localVideo string) (string, error)
+	zipFramesFunc func(string) (string, error)
 }
 
 func NewProcessFileUseCase(
@@ -30,6 +33,8 @@ func NewProcessFileUseCase(
 	cdnDomain string,
 	dynamoClient repository2.DBClient,
 	emailNotifier service.Notifier,
+	extractFramesFunc func(string) (string, error),
+	zipFramesFunc func(string) (string, error),
 ) ProcessFileUseCase {
 	return &processFileUseCase{
 		s3Client:      s3Client,
@@ -37,6 +42,8 @@ func NewProcessFileUseCase(
 		cdnDomain:     cdnDomain,
 		dynamoClient:  dynamoClient,
 		emailNotifier: emailNotifier,
+		extractFrames: extractFramesFunc,
+		zipFramesFunc: zipFramesFunc,
 	}
 }
 
@@ -72,7 +79,13 @@ func (uc *processFileUseCase) Handle(ctx context.Context, msg entity2.Message) e
 	}
 	defer os.RemoveAll(framesDir)
 
-	zipFile, err := uc.zipFrames(framesDir)
+	var zipFile string
+
+	if uc.zipFramesFunc != nil {
+		zipFile, err = uc.zipFramesFunc(framesDir)
+	} else {
+		zipFile, err = uc.zipFrames(framesDir) // chama método real
+	}
 	if err != nil {
 		uc.sendFailureEmail(msg, "Erro ao criar ZIP", err)
 		return err
@@ -101,7 +114,7 @@ func (uc *processFileUseCase) Handle(ctx context.Context, msg entity2.Message) e
 	return nil
 }
 
-func (uc *processFileUseCase) extractFrames(localVideo string) (string, error) {
+func (uc *processFileUseCase) ExtractFrames(localVideo string) (string, error) {
 	framesDir, err := os.MkdirTemp("", "frames_")
 	if err != nil {
 		return "", fmt.Errorf("erro ao criar diretório temporário: %w", err)
@@ -178,4 +191,78 @@ func (uc *processFileUseCase) zipFrames(framesDir string) (string, error) {
 func (uc *processFileUseCase) sendFailureEmail(msg entity2.Message, reason string, err error) {
 	log.Printf("Erro: %s: %v\n", reason, err)
 	_ = uc.emailNotifier.SendFailureEmail(msg.UserID, msg.ID, fmt.Sprintf("%s: %v", reason, err))
+}
+
+func DefaultExtractFrames(localVideo string) (string, error) {
+	framesDir, err := os.MkdirTemp("", "frames_")
+	if err != nil {
+		return "", fmt.Errorf("erro ao criar diretório temporário: %w", err)
+	}
+
+	err = ffmpeg_go.
+		Input(localVideo).
+		Filter("fps", ffmpeg_go.Args{"1/20"}).
+		Output(filepath.Join(framesDir, "frame_%04d.jpg"),
+			ffmpeg_go.KwArgs{
+				"vsync":   "vfr",
+				"q:v":     2,
+				"pix_fmt": "yuvj420p",
+			},
+		).
+		OverWriteOutput().
+		Run()
+
+	if err != nil {
+		return "", fmt.Errorf("erro ao processar frames com ffmpeg-go: %w", err)
+	}
+
+	return framesDir, nil
+}
+
+func DefaultZipFrames(framesDir string) (string, error) {
+	zipPath := filepath.Join(os.TempDir(), fmt.Sprintf("frames_%d.zip", time.Now().UnixNano()))
+	zipFile, err := os.Create(zipPath)
+	if err != nil {
+		return "", fmt.Errorf("erro ao criar arquivo ZIP: %w", err)
+	}
+	defer zipFile.Close()
+
+	archive := zip.NewWriter(zipFile)
+	defer archive.Close()
+
+	err = filepath.Walk(framesDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+
+		relPath, _ := filepath.Rel(framesDir, path)
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		header, err := zip.FileInfoHeader(info)
+		if err != nil {
+			return err
+		}
+		header.Name = relPath
+
+		writer, err := archive.CreateHeader(header)
+		if err != nil {
+			return err
+		}
+
+		_, err = io.Copy(writer, f)
+		return err
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("erro ao caminhar pelos frames: %w", err)
+	}
+
+	return zipPath, nil
 }

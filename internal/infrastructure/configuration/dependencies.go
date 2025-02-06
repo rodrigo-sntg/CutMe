@@ -46,12 +46,22 @@ func InitializeDependencies(awsSession *session.Session) *Dependencies {
 	dynamoClient := db.NewDynamoClient(awsSession, tableName)
 	emailNotifier := email.NewEmailNotifier(emailConfig)
 
+	extractFrames := func(localVideo string) (string, error) {
+		return usecase2.DefaultExtractFrames(localVideo)
+	}
+
+	zipFrames := func(framesDir string) (string, error) {
+		return usecase2.DefaultZipFrames(framesDir)
+	}
+
 	processFileUseCase := usecase2.NewProcessFileUseCase(
 		s3Client,
 		s3Bucket,
 		cdnDomain,
 		dynamoClient,
 		emailNotifier,
+		extractFrames,
+		zipFrames,
 	)
 
 	sqsClient := sqs.New(awsSession)
