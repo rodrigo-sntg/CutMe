@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - master
+  pull_request:
+    branches:
+      - master
 
 jobs:
   build-and-deploy:
@@ -12,6 +15,16 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20'  # Ajuste para a versão do Go que você está usando
+
+      - name: Run Coverage Check
+        run: |
+          chmod +x ./check_coverage.sh
+          ./check_coverage.sh
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
@@ -48,12 +61,9 @@ jobs:
           sudo apt-get install -y wget unzip
           wget -q https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip -O terraform.zip
           unzip -o terraform.zip
-          chmod +x terraform  # Torna o Terraform executável
+          chmod +x terraform
           sudo mv terraform /usr/local/bin/
           rm -f terraform.zip
-
-      - name: List Files
-        run: ls -R
 
       - name: Terraform Init
         working-directory: terraform-infra/application
