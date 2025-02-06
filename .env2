@@ -1,0 +1,11 @@
+AWS_REGION=us-east-1
+S3_BUCKET=meu-bucket-processamento
+DYNAMO_TABLE=ArquivosProcessados1
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_EMAIL=contact@wandrmate.com
+SMTP_PASSWORD=pwbg hwdz hdhh sbtd
+QUEUE_URL=https://queue.amazonaws.com/058264063116/MinhaFila
+CLOUDFRONT_DOMAIN_NAME=d12jxjn0s3w75f.cloudfront.net
+AWS_ACCESS_KEY_ID=AKIAQ3EGPBSGPHXOXWXU
+AWS_SECRET_ACCESS_KEY=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

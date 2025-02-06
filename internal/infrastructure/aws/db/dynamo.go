@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -13,20 +14,20 @@ import (
 )
 
 type dynamoClient struct {
-	svc       *dynamodb.DynamoDB
-	tableName string
+	Svc       dynamodbiface.DynamoDBAPI
+	TableName string
 }
 
 func NewDynamoClient(sess *session.Session, tableName string) repository.DBClient {
 	return &dynamoClient{
-		svc:       dynamodb.New(sess),
-		tableName: tableName,
+		Svc:       dynamodb.New(sess),
+		TableName: tableName,
 	}
 }
 
 func (d *dynamoClient) UpdateStatus(id, status string) error {
 	input := &dynamodb.UpdateItemInput{
-		TableName: aws.String(d.tableName),
+		TableName: aws.String(d.TableName),
 		Key: map[string]*dynamodb.AttributeValue{
 			"id": {
 				S: aws.String(id),
@@ -44,7 +45,7 @@ func (d *dynamoClient) UpdateStatus(id, status string) error {
 		ReturnValues: aws.String("UPDATED_NEW"),
 	}
 
-	_, err := d.svc.UpdateItem(input)
+	_, err := d.Svc.UpdateItem(input)
 	if err != nil {
 		return fmt.Errorf("erro ao atualizar status no Dynamo: %w", err)
 	}
@@ -53,7 +54,7 @@ func (d *dynamoClient) UpdateStatus(id, status string) error {
 
 func (d *dynamoClient) UpdateUploadRecord(record entity.UploadRecord) error {
 	input := &dynamodb.UpdateItemInput{
-		TableName: aws.String(d.tableName),
+		TableName: aws.String(d.TableName),
 		Key: map[string]*dynamodb.AttributeValue{
 			"ID": {
 				S: aws.String(record.ID),
@@ -74,7 +75,7 @@ func (d *dynamoClient) UpdateUploadRecord(record entity.UploadRecord) error {
 		ReturnValues: aws.String("UPDATED_NEW"),
 	}
 
-	_, err := d.svc.UpdateItem(input)
+	_, err := d.Svc.UpdateItem(input)
 	if err != nil {
 		return fmt.Errorf("erro ao atualizar registro no DynamoDB: %w", err)
 	}
@@ -83,7 +84,7 @@ func (d *dynamoClient) UpdateUploadRecord(record entity.UploadRecord) error {
 
 func (d *dynamoClient) CreateUploadRecord(record entity.UploadRecord) error {
 	input := &dynamodb.PutItemInput{
-		TableName: aws.String(d.tableName),
+		TableName: aws.String(d.TableName),
 		Item: map[string]*dynamodb.AttributeValue{
 			"id": {
 				S: aws.String(record.ID),
@@ -113,7 +114,7 @@ func (d *dynamoClient) CreateUploadRecord(record entity.UploadRecord) error {
 		ConditionExpression: aws.String("attribute_not_exists(id)"),
 	}
 
-	_, err := d.svc.PutItem(input)
+	_, err := d.Svc.PutItem(input)
 
 	if err != nil {
 		if isConditionalCheckFailed(err) {
@@ -129,12 +130,13 @@ func isConditionalCheckFailed(err error) bool {
 	if aerr, ok := err.(awserr.Error); ok {
 		return aerr.Code() == dynamodb.ErrCodeConditionalCheckFailedException
 	}
-	return false
+	// Verificação adicional para erros simulados
+	return err != nil && err.Error() == dynamodb.ErrCodeConditionalCheckFailedException
 }
 
 func (d *dynamoClient) CreateOrUpdateUploadRecord(record entity.UploadRecord) error {
 	input := &dynamodb.UpdateItemInput{
-		TableName: aws.String(d.tableName),
+		TableName: aws.String(d.TableName),
 		Key: map[string]*dynamodb.AttributeValue{
 			"id": {
 				S: aws.String(record.ID),
@@ -183,7 +185,7 @@ func (d *dynamoClient) CreateOrUpdateUploadRecord(record entity.UploadRecord) er
 		ReturnValues: aws.String("ALL_NEW"),
 	}
 
-	_, err := d.svc.UpdateItem(input)
+	_, err := d.Svc.UpdateItem(input)
 	if err != nil {
 		return fmt.Errorf("erro ao criar ou atualizar registro no DynamoDB: %w", err)
 	}
@@ -194,7 +196,7 @@ func (d *dynamoClient) CreateOrUpdateUploadRecord(record entity.UploadRecord) er
 
 func (d *dynamoClient) GetUploads(status string) ([]entity.UploadRecord, error) {
 	input := &dynamodb.ScanInput{
-		TableName: aws.String(d.tableName),
+		TableName: aws.String(d.TableName),
 	}
 
 	if status != "" {
@@ -209,7 +211,7 @@ func (d *dynamoClient) GetUploads(status string) ([]entity.UploadRecord, error) 
 		}
 	}
 
-	result, err := d.svc.Scan(input)
+	result, err := d.Svc.Scan(input)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao escanear registros no DynamoDB: %w", err)
 	}
@@ -224,7 +226,7 @@ func (d *dynamoClient) GetUploads(status string) ([]entity.UploadRecord, error) 
 
 func (d *dynamoClient) GetUploadByID(id string) (*entity.UploadRecord, error) {
 	input := &dynamodb.GetItemInput{
-		TableName: aws.String(d.tableName),
+		TableName: aws.String(d.TableName),
 		Key: map[string]*dynamodb.AttributeValue{
 			"id": {
 				S: aws.String(id),
@@ -232,7 +234,7 @@ func (d *dynamoClient) GetUploadByID(id string) (*entity.UploadRecord, error) {
 		},
 	}
 
-	result, err := d.svc.GetItem(input)
+	result, err := d.Svc.GetItem(input)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao buscar registro no DynamoDB: %w", err)
 	}
@@ -251,7 +253,7 @@ func (d *dynamoClient) GetUploadByID(id string) (*entity.UploadRecord, error) {
 
 func (d *dynamoClient) GetUploadsByUserID(userID string, status string) ([]entity.UploadRecord, error) {
 	input := &dynamodb.QueryInput{
-		TableName:              aws.String(d.tableName),
+		TableName:              aws.String(d.TableName),
 		IndexName:              aws.String("UserID-index"),
 		KeyConditionExpression: aws.String("userId = :userId"),
 		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
@@ -271,7 +273,7 @@ func (d *dynamoClient) GetUploadsByUserID(userID string, status string) ([]entit
 		}
 	}
 
-	result, err := d.svc.Query(input)
+	result, err := d.Svc.Query(input)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao consultar registros no DynamoDB: %w", err)
 	}

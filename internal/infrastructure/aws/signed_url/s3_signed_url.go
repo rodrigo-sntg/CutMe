@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"net/http"
@@ -14,7 +15,7 @@ import (
 
 // SignedURLGenerator implementa a interface PresignedURLGenerator
 type SignedURLGenerator struct {
-	s3Client    *s3.S3
+	s3Client    s3iface.S3API
 	bucketName  string
 	urlValidity time.Duration
 }
